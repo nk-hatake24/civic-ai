@@ -20,23 +20,23 @@ RUN pip install --user --no-cache-dir -r requirements.txt
 # --- STAGE 2: Runner ---
 FROM python:3.12-slim AS runner
 
-# Set metadata
-LABEL maintainer="CivicAI Team"
-LABEL version="1.0.0"
-
 WORKDIR /app
 
-# 1. Install Doppler CLI using the official binary script
-# We install curl and ca-certificates first so we can download the script securely
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
+# 1. Install Doppler CLI
+# We add 'gnupg' because the Doppler install script needs 'gpg' to verify the binary signature
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    gnupg && \
     curl -Ls --retry 5 https://cli.doppler.com/install.sh | sh && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # 2. Setup Security: Create a non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup -m appuser
 
 # 3. Copy installed packages from builder
-# Ensure we copy to a location the appuser can access
 COPY --from=builder /root/.local /home/appuser/.local
 
 # 4. Copy application code and set ownership
@@ -53,7 +53,6 @@ USER appuser
 EXPOSE 8000
 
 # 8. Entrypoint: Use Doppler to inject secrets
-# NOTE: You must pass DOPPLER_TOKEN as an env var when running this container
 ENTRYPOINT ["doppler", "run", "--"]
 
 # Default command
