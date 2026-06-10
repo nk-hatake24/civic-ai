@@ -1,0 +1,28 @@
+{
+  "users": [
+    {
+      "id": "1",
+      "email": "admin@gmail.com",
+      "name": "Admin User",
+      "password": "admin"
+    },
+    {
+      "id": "2",
+      "email": "john@civicai.com",
+      "name": "John Civic",
+      "password": "password123"
+    },
+    {
+      "id": "3",
+      "email": "john@gmail.Com",
+      "name": "john",
+      "password": "123456"
+    },
+    {
+      "id": "4",
+      "email": "ever@gmail.com",
+      "name": "Eve Lauss ",
+      "password": "123456"
+    }
+  ]
+}

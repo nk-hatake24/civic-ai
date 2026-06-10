@@ -1,0 +1,75 @@
+services:
+  # --- DATABASE: MongoDB ---
+  mongodb:
+    image: mongo:7
+    container_name: civicai-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  # --- CACHE & QUEUE: Redis ---
+  # Note: Even if you use Upstash for prod, having a local redis 
+  # is great for offline development.
+  redis:
+    image: redis:7-alpine
+    container_name: civicai-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # --- BACKEND: FastAPI API ---
+  backend-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: civicai-backend-api
+    restart: always
+    depends_on:
+      - mongodb
+      - redis
+    ports:
+      - "8000:8000"
+    environment:
+      - DOPPLER_TOKEN=${BACKEND_DOPPLER_TOKEN}
+
+  # --- BACKEND: ARQ Worker ---
+  # We reuse the exact same image as the API but change the startup command
+  backend-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: civicai-backend-worker
+    restart: always
+    depends_on:
+      - mongodb
+      - redis
+      - backend-api
+    command: python -m arq app.worker.queue.WorkerSettings
+    environment:
+      - DOPPLER_TOKEN=${BACKEND_DOPPLER_TOKEN}
+
+  # --- FRONTEND: Next.js ---
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Build-time token for NEXT_PUBLIC vars
+        - DOPPLER_TOKEN=${FRONTEND_DOPPLER_TOKEN}
+    container_name: civicai-frontend
+    restart: always
+    depends_on:
+      - backend-api
+    ports:
+      - "3000:3000"
+    environment:
+      # Runtime token for server-side secrets
+      - DOPPLER_TOKEN=${FRONTEND_DOPPLER_TOKEN}
+
+volumes:
+  mongo_data:
+  redis_data:
