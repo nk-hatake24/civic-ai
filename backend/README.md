@@ -1,82 +1,102 @@
-# 🇨🇲 CivicAI - AI-Native eGov Platform
+This is the complete, professional **README.md** for **CivicAI**. It is designed as a "Developer's Manual" to explain not just *how* to run it, but *why* it was built this way.
 
-CivicAI is a production-grade AI-native platform designed to provide citizens and officials with real-time insights into government data using World Bank Open Data. 
+---
 
-The system is built with an **Agentic Architecture**: the AI (Gemini, Groq, or Qwen) can decide to use specialized tools to fetch real economic data, processing these requests in background workers to keep the user interface responsive and fluid.
+# 🇨🇲 CivicAI Backend - AI-Native eGov Platform
+
+CivicAI is a production-grade Python backend designed to provide citizens and officials with real-time, AI-driven insights into government data (using World Bank Open Data). 
+
+It uses an **Agentic Architecture** where an AI (Claude/Gemini/Groq) can "decide" to call tools to fetch real data, processing these requests in background workers to ensure the main API remains lightning-fast.
 
 ---
 
 ## 🏗 System Architecture
 
-1.  **FastAPI Gateway**: Handles authentication, rate limiting, and job orchestration.
-2.  **JWT Authentication**: Stateless security using `bcrypt`. Every request is scoped to a `user_id` to ensure data isolation.
-3.  **ARQ Job Queue**: AI processing is offloaded to Redis to prevent API timeouts during long "reasoning" phases.
-4.  **Async Workers**: Background processes that execute the "AI Agentic Loop" and fetch real-world data.
-5.  **Multi-Provider AI Service**: A failover-resilient service that tries **Google Gemini (Thinking Mode)**, then **Groq (Llama 3)**, then **Alibaba Qwen** if a provider is down.
-6.  **FastMCP (Model Context Protocol)**: A standardized tool layer that connects the AI "brain" to the World Bank "data".
-7.  **SSE (Server-Sent Events)**: Real-time tokens and tool-status updates are pushed from the worker to the frontend via Redis.
+1.  **FastAPI Gateway**: Handles authentication, rate limiting, and job submission.
+2.  **JWT Authentication**: Stateless security using `python-jose`. Every request is scoped to a `user_id`.
+3.  **ARQ Job Queue**: AI requests are offloaded to Redis to prevent API timeouts.
+4.  **Async Workers**: Background processes that run the "AI Agentic Loop" and execute tools.
+5.  **Multi-Provider AI Service**: Failover logic that tries **Groq**, then **Alibaba Qwen**, then **Google Gemini**.
+6.  **FastMCP (Model Context Protocol)**: Standardized tools that allow the AI to fetch World Bank data.
+7.  **SSE (Server-Sent Events)**: Real-time updates pushed from the worker to the frontend via Redis.
 8.  **Dual Storage**: 
     *   **MongoDB**: Persistent storage for user profiles and chat history.
     *   **Redis**: High-speed caching for API results and transient SSE events.
 
 ---
 
-## 📂 Project Structure
+## 📂 Project Structure & File Map
 
-```text
-.
-├── docker-compose.yml         # Root orchestration for Front, Back, DB, and Worker
-├── frontend/                  # Next.js Application (PNPM + Standalone Build)
-└── backend/                   # FastAPI Application
-    ├── app/
-    │   ├── auth/              # JWT, Password hashing, and Registration
-    │   ├── chat/              # Chat job submission and SSE Streaming
-    │   ├── conversations/     # History management (User-scoped)
-    │   ├── db/                # MongoDB & Redis lifecycle
-    │   ├── mcp/               # FastMCP Tool definitions
-    │   ├── services/          # Multi-AI Provider and World Bank Client
-    │   └── worker/            # ARQ Task definitions & background logic
-    └── tests/                 # Full Testing Suite
+### `app/` (Core Application)
+*   **`main.py`**: The entry point. Initializes FastAPI, connects to databases, and mounts the routers. It handles the "Lifespan" (connecting/disconnecting DBs).
+*   **`config.py`**: Uses `pydantic-settings` to validate `.env` variables. It ensures the app won't start if a key is missing.
+*   **`dependencies.py`**: Contains `get_current_user`. This is the **Security Guard**. It decodes the JWT and provides the `user_id` to any route that needs it.
+
+### `app/auth/` (Identity & Security)
+*   **`router.py`**: Defines `/auth/register` and `/auth/login` endpoints.
+*   **`service.py`**: Logic for creating users in MongoDB and verifying passwords.
+*   **`utils.py`**: Low-level helpers for hashing passwords (`bcrypt`) and signing JWT tokens.
+*   **`schemas.py`**: Data models for login requests and token responses.
+
+### `app/db/` (Data Layers)
+*   **`mongo.py`**: Motor (Async MongoDB) configuration. Includes `create_indexes()` which physically prevents one user from seeing another user's data.
+*   **`redis.py`**: Connection logic for Upstash/Local Redis. Includes SSL support for cloud providers.
+
+### `app/services/` (External Intelligence)
+*   **`ai_multi_provider.py`**: The "Brain Selector." It iterates through providers (Groq, Gemini, etc.) if one fails or is slow.
+*   **`worldbank.py`**: Async client for the World Bank API. Includes a **24-hour Redis cache** to save money and increase speed.
+
+### `app/worker/` (The Engine Room)
+*   **`queue.py`**: Configuration for the ARQ worker. Connects the worker to the same Redis as the API.
+*   **`tasks.py`**: The **Agentic Loop**. This is where the AI "thinks," calls World Bank tools, saves the results to MongoDB, and pushes updates to the SSE stream.
+
+### `app/chat/` & `app/conversations/`
+*   **`chat/router.py`**: 
+    *   `POST /`: Enqueues a new AI job.
+    *   `GET /stream/{job_id}`: The SSE endpoint that allows the frontend to watch the AI work in real-time.
+*   **`conversations/router.py`**: Fetches chat history. Every query is strictly filtered by `user_id`.
+
+---
+
+## 🔑 Environment Variables (`.env`)
+
+| Variable | Description |
+| :--- | :--- |
+| `JWT_SECRET` | A long random string used to sign security tokens. |
+| `ANTHROPIC_API_KEY` | Key for Claude 3.5 Sonnet. |
+| `GROQ_API_KEY` | Key for ultra-fast Llama 3/Mixtral models. |
+| `ALIBABA_API_KEY` | Key for Qwen models (excellent for JSON). |
+| `GOOGLE_API_KEY` | Key for Gemini 2.0 (supports "Thinking" mode). |
+| `MONGODB_URL` | Connection string (Local or MongoDB Atlas). |
+| `REDIS_URL` | Connection string (Starts with `rediss://` for Upstash). |
+
+---
+
+## 🚀 Installation & Setup
+
+### 1. Prerequisites
+*   Python 3.12+
+*   A running Redis instance (Upstash is recommended).
+*   A running MongoDB instance (Atlas is recommended).
+
+### 2. Install Dependencies
+```powershell
+pip install -r requirements.txt
 ```
 
----
+### 3. Launching the Platform (2 Terminals Required)
 
-## 🔑 Secrets Management (Doppler)
-
-CivicAI uses **Doppler** for centralized secrets management. This ensures that `.env` files are never leaked in Docker images.
-
-**Required Secrets:**
-*   `JWT_SECRET`: For signing tokens.
-*   `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, `ALIBABA_API_KEY`, `GOOGLE_API_KEY`: For AI failover.
-*   `MONGODB_URL` & `REDIS_URL`: For infrastructure connectivity.
-
----
-
-## 🚀 How to Launch CivicAI
-
-### Option A: With Docker (Recommended)
-This launches the API, the Worker, the Frontend, MongoDB, and Redis in one command.
-
-1.  Ensure you have `BACKEND_DOPPLER_TOKEN` and `FRONTEND_DOPPLER_TOKEN` in a `.env` file at the root.
-2.  Run:
-    ```bash
-    docker-compose up --build
-    ```
-
-### Option B: Local Manual Start (For Development)
-**Terminal 1: Redis & MongoDB**
-Ensure your local or cloud instances are running.
-
-**Terminal 2: The API**
-```bash
-cd backend
+**Terminal 1: The API Gateway**
+This handles the web traffic and the documentation.
+```powershell
 $env:PYTHONPATH = "."
 python -m uvicorn app.main:app --reload
 ```
+*Access Docs at: `http://127.0.0.1:8000/docs`*
 
-**Terminal 3: The Worker**
-```bash
-cd backend
+**Terminal 2: The Async Worker**
+This processes the AI logic and tools.
+```powershell
 $env:PYTHONPATH = "."
 python -m arq app.worker.queue.WorkerSettings
 ```
@@ -138,4 +158,11 @@ The CivicAI API uses an **Asynchronous Job Pattern**.
 *   **Non-Root Execution**: Both Frontend and Backend containers run as non-privileged users.
 
 ---
-**CivicAI** - *Empowering Cameroon through Data and Intelligence.*
+
+## 🛠 MCP Tools Available to AI
+The AI has access to the following specialized tools via the worker:
+1.  `get_economic_indicator`: Fetches GDP, Population, Inflation, or Unemployment.
+2.  `get_country_info`: Fetches capital, region, and income level.
+
+---
+**CivicAI** - *Empowering citizens through data and intelligence.*
