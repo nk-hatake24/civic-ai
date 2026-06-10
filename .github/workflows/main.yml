@@ -37,7 +37,7 @@ jobs:
 
       - name: Run Backend Tests
         env:
-          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN_BACKEND }}
+          DOPPLER_TOKEN: ${{ secrets.BACKEND_DOPPLER_TOKEN }}
         run: |
           cd backend
           export PYTHONPATH=$PYTHONPATH:$(pwd)
@@ -82,7 +82,7 @@ jobs:
       - name: Build Frontend Image
         run: |
           docker build \
-            --build-arg DOPPLER_TOKEN=${{ secrets.DOPPLER_TOKEN_FRONTEND }} \
+            --build-arg DOPPLER_TOKEN=${{ secrets.FRONTEND_DOPPLER_TOKEN }} \
             -t ${{ secrets.DOCKERHUB_USERNAME }}/civicai-frontend:latest ./frontend
 
       - name: Run Trivy vulnerability scanner (Frontend)
