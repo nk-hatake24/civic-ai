@@ -1,3 +1,4 @@
+// components/chat/DataCard.tsx
 'use client'
 
 import { DataCard as DataCardType } from '@/lib/types'

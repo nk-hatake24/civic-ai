@@ -1,123 +1,71 @@
-import { promises as fs } from 'fs'
-import path from 'path'
 import { NextRequest, NextResponse } from 'next/server'
 
-interface User {
-  id: string
-  email: string
-  name: string
-  password: string
-}
-
-interface UsersData {
-  users: User[]
-}
-
-async function readUsers(): Promise<UsersData> {
-  const filePath = path.join(process.cwd(), 'lib', 'users.json')
-  try {
-    const data = await fs.readFile(filePath, 'utf-8')
-    return JSON.parse(data)
-  } catch (error) {
-    // If file doesn't exist, return default users
-    return {
-      users: [
-        {
-          id: '1',
-          email: 'admin@gmail.com',
-          name: 'Admin User',
-          password: 'admin',
-        },
-      ],
-    }
-  }
-}
-
-async function writeUsers(data: UsersData): Promise<void> {
-  const filePath = path.join(process.cwd(), 'lib', 'users.json')
-  await fs.writeFile(filePath, JSON.stringify(data, null, 2))
-}
-
 export async function POST(request: NextRequest) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s for registration
+
   try {
     const body = await request.json()
     const { email, name, password, confirmPassword } = body
 
-    // Validation
+    // 1. Server-side validation (Safety Net)
     if (!email || !name || !password || !confirmPassword) {
-      return NextResponse.json(
-        { error: 'All fields are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
     }
 
     if (password !== confirmPassword) {
-      return NextResponse.json(
-        { error: 'Passwords do not match' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Passwords do not match' }, { status: 400 })
     }
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters' },
-        { status: 400 }
-      )
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+
+    // 2. Call FastAPI Backend
+    const response = await fetch(`${backendUrl}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        full_name: name, // FastAPI expects 'full_name'
+        password: password
+      }),
+      signal: controller.signal,
+    }).catch((err) => {
+      if (err.name === 'AbortError') return 'TIMEOUT';
+      return null;
+    });
+
+    // 3. Network/Timeout Checks
+    if (response === 'TIMEOUT') return NextResponse.json({ error: 'Registration timed out' }, { status: 504 });
+    if (!response || !(response instanceof Response)) return NextResponse.json({ error: 'Backend unreachable' }, { status: 503 });
+
+    // 4. Content-Type Guard
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return NextResponse.json({ error: 'Invalid backend response' }, { status: 502 });
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      )
+    const data = await response.json()
+    const generatedName = email.split('@')[0];
+    // 5. Handle Logic Errors (e.g., 400 User Already Exists)
+    if (!response.ok) {
+      const msg = data.detail || 'Registration failed';
+      return NextResponse.json({ error: msg }, { status: response.status })
     }
 
-    // Read existing users
-    const usersData = await readUsers()
+    // 6. Success
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        name: generatedName
+      }
+    }, { status: 201 })
 
-    // Check if email already exists
-    const existingUser = usersData.users.find(
-      (u: User) => u.email.toLowerCase() === email.toLowerCase()
-    )
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'Email already registered' },
-        { status: 400 }
-      )
-    }
-
-    // Create new user
-    const newUser: User = {
-      id: (Math.max(...usersData.users.map((u: User) => parseInt(u.id))) + 1).toString(),
-      email,
-      name,
-      password, // In production, this should be hashed
-    }
-
-    // Add user to users data
-    usersData.users.push(newUser)
-
-    // Write updated users to file
-    await writeUsers(usersData)
-
-    // Return success with user data (without password)
-    return NextResponse.json(
-      {
-        success: true,
-        user: {
-          id: newUser.id,
-          email: newUser.email,
-          name: newUser.name,
-        },
-      },
-      { status: 201 }
-    )
   } catch (error) {
-    console.error('[v0] Registration error:', error)
-    return NextResponse.json(
-      { error: 'Registration failed' },
-      { status: 500 }
-    )
+    console.error('Registration Route Error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

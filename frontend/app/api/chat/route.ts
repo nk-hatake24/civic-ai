@@ -1,73 +1,41 @@
+// app/api/chat/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
+// La fonction DOIT s'appeler "POST" en majuscules
 export async function POST(request: NextRequest) {
   try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get('auth_token')?.value
+
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
-    const { message, conversation_id, language } = body
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
-    if (!message || !conversation_id) {
-      return NextResponse.json(
-        { error: 'invalid_request' },
-        { status: 400 }
-      )
-    }
-
-    // Get environment variables (server-only)
-    const backendUrl = process.env.MCP_BACKEND_URL
-    const apiKey = process.env.MCP_API_KEY
-
-    if (!backendUrl || !apiKey) {
-      console.error('[v0] Missing environment variables: MCP_BACKEND_URL or MCP_API_KEY')
-      return NextResponse.json(
-        { error: 'config' },
-        { status: 500 }
-      )
-    }
-
-    // Forward request to MCP backend
-    const response = await fetch(`${backendUrl}/api/chat`, {
+    const res = await fetch(`${backendUrl}/api/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': apiKey,
+        'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({
-        message,
-        conversation_id,
-        language: language || 'en',
-      }),
+      body: JSON.stringify(body)
     })
 
-    // Handle upstream errors
-    if (!response.ok) {
-      if (response.status === 401) {
-        return NextResponse.json(
-          { error: 'auth' },
-          { status: 401 }
-        )
-      }
-
-      if (response.status === 429) {
-        return NextResponse.json(
-          { error: 'rate_limit' },
-          { status: 429 }
-        )
-      }
-
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}))
       return NextResponse.json(
-        { error: 'upstream' },
-        { status: response.status }
+        { error: errorData.detail || 'Backend error' },
+        { status: res.status }
       )
     }
 
-    const chatResponse = await response.json()
-
-    return NextResponse.json(chatResponse)
+    const data = await res.json()
+    return NextResponse.json(data)
   } catch (error) {
-    console.error('[v0] Chat API error:', error)
-    return NextResponse.json(
-      { error: 'network' },
-      { status: 500 }
-    )
+    console.error('Next.js API Route Error:', error)
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }

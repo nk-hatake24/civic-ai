@@ -1,3 +1,4 @@
+// app/chat/[id]/page.tsx
 'use client'
 
 import { useEffect } from 'react'

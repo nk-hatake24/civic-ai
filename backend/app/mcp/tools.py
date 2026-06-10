@@ -5,20 +5,31 @@ from typing import Literal
 mcp = FastMCP("CivicAI Tools")
 
 @mcp.tool
-async def get_economic_indicator(
-    indicator: Literal["GDP", "Population", "Inflation", "Unemployment"],
+async def get_development_indicator(
+    indicator: Literal[
+        "GDP", 
+        "Population", 
+        "Inflation", 
+        "Unemployment", 
+        "Literacy Rate", 
+        "Primary Enrollment", 
+        "Education Expenditure"
+    ],
     country_code: str = "CM"
 ):
     """
-    Fetch real-world economic data from the World Bank. 
-    Use this when the user asks for specific numbers or statistics.
+    Fetch real-world development, economic, or education statistics from the World Bank. 
+    Use this when the user asks for specific numbers, metrics, or education and growth statistics.
     """
-    # Mapping friendly names to World Bank codes
+    # Mapping friendly names to World Bank codes (including education metrics)
     codes = {
         "GDP": "NY.GDP.MKTP.CD",
         "Population": "SP.POP.TOTL",
         "Inflation": "FP.CPI.TOTL.ZG",
-        "Unemployment": "SL.UEM.TOTL.ZS"
+        "Unemployment": "SL.UEM.TOTL.ZS",
+        "Literacy Rate": "SE.ADT.LITR.ZS",              # Taux d'alphabétisation des adultes (%)
+        "Primary Enrollment": "SE.PRM.NENR",            # Taux net de scolarisation au primaire (%)
+        "Education Expenditure": "SE.XPD.TOTL.GD.ZS"    # Dépenses publiques d'éducation (% du PIB)
     }
     
     data = await worldbank_client.get_indicator(codes[indicator], country_code)

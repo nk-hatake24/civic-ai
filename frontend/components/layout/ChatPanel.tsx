@@ -1,137 +1,118 @@
+// components/layout/ChatPanel.tsx
 'use client'
 
+import { useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useChatStore } from '@/store'
 import { useChat } from '@/hooks/useChat'
-import { useAutoScroll } from '@/hooks/useAutoScroll'
 import { MessageBubble } from '@/components/chat/MessageBubble'
+import { MessageInput } from '@/components/chat/MessageInput'
 import { ToolExecutionCard } from '@/components/chat/ToolExecutionCard'
 import { DataCard } from '@/components/chat/DataCard'
-import { MessageInput } from '@/components/chat/MessageInput'
-import { SuggestedPrompts } from '@/components/chat/SuggestedPrompts'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Badge } from '@/components/ui/badge'
-import { t } from '@/lib/i18n'
-import { useState, useEffect } from 'react'
 
 export function ChatPanel() {
-  const [isHydrated, setIsHydrated] = useState(false)
-  const activeConversation = useChatStore((state) => state.getActiveConversation())
+  const searchParams = useSearchParams()
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  
+  // Référence pour bloquer les appels doubles de StrictMode par conversation
+  const triggerTrackerRef = useRef<Record<string, boolean>>({})
+  
+  const activeId = useChatStore((state) => state.activeConversationId)
   const language = useChatStore((state) => state.language)
-  const addMessage = useChatStore((state) => state.addMessage)
-  const { sendMessage, isLoading, error } = useChat(activeConversation?.id || null)
+  const getConversation = useChatStore((state) => state.getConversation)
+  
+  const conversation = activeId ? getConversation(activeId) : null
+  const { sendMessage, isLoading, error } = useChat(activeId)
 
-  const scrollRef = useAutoScroll(activeConversation?.messages.length)
-
+  // Trigger de traitement au chargement de la page d'URL (avec protection anti-doublon)
   useEffect(() => {
-    setIsHydrated(true)
-  }, [])
+    const trigger = searchParams.get('trigger')
+    
+    if (trigger === 'true' && activeId && conversation && conversation.messages.length > 0) {
+      // Si cette conversation a déjà déclenché son premier message, on ignore les montages suivants
+      if (triggerTrackerRef.current[activeId]) {
+        return
+      }
 
-  const handlePromptSelect = (prompt: string) => {
-    if (activeConversation?.id) {
-      // Add user message with the prompt
-      addMessage(activeConversation.id, {
-        role: 'user',
-        content: prompt,
-        timestamp: Date.now(),
-        sources: [],
-        toolCalls: [],
-      })
-      // Send the message
-      sendMessage(prompt)
+      const lastMessage = conversation.messages[conversation.messages.length - 1]
+      if (lastMessage.role === 'user') {
+        // Enregistrer immédiatement le déclenchement pour bloquer le double-effet de React
+        triggerTrackerRef.current[activeId] = true
+        sendMessage(lastMessage.content)
+      }
     }
-  }
+  }, [activeId, searchParams, conversation, sendMessage])
 
-  if (!isHydrated) {
-    return (
-      <div className="flex-1 flex flex-col bg-background">
-        <div className="border-b border-border p-4 h-16 bg-card" />
-        <div className="flex-1 p-4" />
-      </div>
-    )
-  }
+  // Défilement automatique lors de la réception des messages
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth'
+      })
+    }
+  }, [conversation?.messages])
 
-  if (!activeConversation) {
+  if (!conversation) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground">
-            {language === 'en' ? 'Select or create a conversation to start' : 'Sélectionnez ou créez une conversation pour commencer'}
-          </p>
-        </div>
+      <div className="flex-1 flex items-center justify-center p-4">
+        <p className="text-muted-foreground text-sm">Select or start a new conversation.</p>
       </div>
     )
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-background">
-      {/* Header */}
-      <div className="border-b border-border p-4 flex items-center justify-between bg-card">
-        <h2 className="text-lg font-semibold text-foreground truncate">
-          {activeConversation.title}
-        </h2>
-        <Badge variant="secondary" className="text-xs ml-2 flex-shrink-0">
-          {t('powered_by', language)}
-        </Badge>
+    <div className="flex-1 flex flex-col h-full min-h-0 bg-background relative overflow-hidden">
+      
+      {/* Zone Historique de discussion */}
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-6 md:px-8 space-y-6 scroll-smooth min-h-0"
+      >
+        <div className="max-w-3xl mx-auto space-y-6 pb-4">
+          {conversation.messages.map((message) => (
+            <div key={message.id} className="space-y-4">
+              <MessageBubble message={message} />
+
+              {/* logs outils MCP */}
+              {message.toolCalls && message.toolCalls.length > 0 && (
+                <div className="space-y-2 max-w-2xl ml-12">
+                  {message.toolCalls.map((tool) => (
+                    <ToolExecutionCard key={tool.id} toolCall={tool} />
+                  ))}
+                </div>
+              )}
+
+              {/* graphiques / données structurées */}
+              {message.dataCards && message.dataCards.length > 0 && (
+                <div className="space-y-4 max-w-2xl ml-12">
+                  {message.dataCards.map((card) => (
+                    <DataCard key={card.id} dataCard={card} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="max-w-2xl mx-auto w-full space-y-4">
-          {activeConversation.messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center min-h-full py-8 space-y-6">
-              <div className="text-center">
-                <p className="text-muted-foreground text-sm mb-6">
-                  {language === 'en' ? 'Start with a suggestion or ask your own question' : 'Commencez par une suggestion ou posez votre propre question'}
-                </p>
-              </div>
-              <SuggestedPrompts onSelect={handlePromptSelect} language={language} />
+      {/* Saisie Sticky */}
+      <div className="p-4 border-t border-border bg-card flex-shrink-0 z-10 shadow-lg">
+        <div className="max-w-3xl mx-auto">
+          {error && (
+            <div className="mb-3 p-3 text-xs bg-destructive/10 border border-destructive text-destructive rounded-lg">
+              {error}
             </div>
-          ) : (
-            <>
-              {activeConversation.messages.map((message) => (
-                <div key={message.id}>
-                  <MessageBubble message={message} />
-
-                  {message.toolCalls && message.toolCalls.length > 0 && (
-                    <div className="ml-11 space-y-2">
-                      {message.toolCalls.map((toolCall) => (
-                        <ToolExecutionCard key={toolCall.id} toolCall={toolCall} />
-                      ))}
-                    </div>
-                  )}
-
-                  {message.dataCards && message.dataCards.length > 0 && (
-                    <div className="ml-11 space-y-2">
-                      {message.dataCards.map((dataCard) => (
-                        <DataCard key={dataCard.id} dataCard={dataCard} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-              <div ref={scrollRef} />
-            </>
           )}
-        </div>
-      </ScrollArea>
-
-      {/* Error Message */}
-      {error && (
-        <div className="px-4 py-2 bg-destructive/10 border-t border-destructive text-destructive text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* Input */}
-      <div className="p-4 border-t border-border bg-card">
-        <div className="max-w-2xl mx-auto w-full">
-          <MessageInput
-            onSend={sendMessage}
-            isLoading={isLoading}
-            language={language}
+          <MessageInput 
+            onSend={sendMessage} 
+            isLoading={isLoading} 
+            language={language} 
           />
         </div>
       </div>
+
     </div>
   )
 }
