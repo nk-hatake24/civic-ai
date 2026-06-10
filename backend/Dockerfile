@@ -28,8 +28,9 @@ WORKDIR /app
 
 # 1. Install Doppler CLI
 RUN apt-get update && apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl gnupg && \
-    curl -sLf --retry 3 --retry-delay 2 https://packages.doppler.com/public/cli/gpg.744D481B46951664.key | apt-key add - && \
-    echo "deb https://packages.doppler.com/public/cli/debian any-version main" | tee /etc/apt/sources.list.d/doppler-cli.list && \
+    mkdir -p /etc/apt/keyrings && \
+    curl -sLf https://packages.doppler.com/public/cli/gpg.744D481B46951664.key | gpg --dearmor -o /etc/apt/keyrings/doppler-archive-keyring.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/doppler-archive-keyring.gpg] https://packages.doppler.com/public/cli/debian any-version main" | tee /etc/apt/sources.list.d/doppler-cli.list && \
     apt-get update && \
     apt-get install -y doppler && \
     rm -rf /var/lib/apt/lists/*
