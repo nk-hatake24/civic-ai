@@ -26,31 +26,35 @@ LABEL version="1.0.0"
 
 WORKDIR /app
 
-# 1. Install Doppler CLI
-RUN apt-get update && apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl gnupg && \
-    curl -sLf --retry 3 --retry-delay 2 https://packages.doppler.com/public/cli/gpg.744D481B46951664.key | apt-key add - && \
-    echo "deb https://packages.doppler.com/public/cli/debian any-version main" | tee /etc/apt/sources.list.d/doppler-cli.list && \
-    apt-get update && \
-    apt-get install -y doppler && \
-    rm -rf /var/lib/apt/lists/*
+# 1. Install Doppler CLI using the official binary script
+# We install curl and ca-certificates first so we can download the script securely
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
+    curl -Ls --retry 5 https://cli.doppler.com/install.sh | sh && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # 2. Setup Security: Create a non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup -m appuser
-USER appuser
 
 # 3. Copy installed packages from builder
+# Ensure we copy to a location the appuser can access
 COPY --from=builder /root/.local /home/appuser/.local
-ENV PATH=/home/appuser/.local/bin:$PATH
 
-# 4. Copy application code
+# 4. Copy application code and set ownership
 COPY --chown=appuser:appgroup . .
 
-# 5. Expose FastAPI port
+# 5. Set Environment Variables
+ENV PATH=/home/appuser/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
+
+# 6. Switch to non-root user
+USER appuser
+
+# 7. Expose FastAPI port
 EXPOSE 8000
 
-# 6. Entrypoint: Use Doppler to inject secrets into the process memory
-# DOPPLER_TOKEN must be provided at runtime via environment variable
+# 8. Entrypoint: Use Doppler to inject secrets
+# NOTE: You must pass DOPPLER_TOKEN as an env var when running this container
 ENTRYPOINT ["doppler", "run", "--"]
 
-# Default command (can be overridden by docker-compose for the worker)
+# Default command
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
