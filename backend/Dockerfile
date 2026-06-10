@@ -1,45 +1,52 @@
 # --- STAGE 1: Builder ---
 FROM python:3.12-slim AS builder
+
 WORKDIR /build
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential curl
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential curl && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
-# Install to /root/.local
+
+# Install Python dependencies locally
 RUN pip install --user --no-cache-dir -r requirements.txt
+
 
 # --- STAGE 2: Runner ---
 FROM python:3.12-slim AS runner
+
 WORKDIR /app
 
-# 1. INSTALL DOPPLER (The Official Script Method)
-# We must install gnupg first so the script can verify the signature.
-# We use DEBIAN_FRONTEND=noninteractive to avoid the 'Teletype' error.
+# System dependencies + Doppler
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        curl ca-certificates gnupg && \
     curl -Ls https://cli.doppler.com/install.sh | sh && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# 2. USER SETUP
+# Create non-root user
 RUN groupadd -r appgroup && useradd -r -g appgroup -m appuser
 
-# 3. COPY PACKAGES FROM BUILDER
-# Note: Ensure the path matches where pip installed them in Stage 1
+# Copy Python dependencies from builder
 COPY --from=builder /root/.local /home/appuser/.local
 
-# 4. COPY CODE
+# Fix permissions
+RUN chown -R appuser:appgroup /home/appuser/.local
+
+# Copy application code
 COPY --chown=appuser:appgroup . .
 
-# 5. ENVIRONMENT
-ENV PATH=/home/appuser/.local/bin:$PATH
+# Environment variables
+ENV PATH="/home/appuser/.local/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 USER appuser
 
-# 6. DOPPLER INTEGRATION (From Docs)
-# The docs state: "Use the Doppler RUN command as the ENTRYPOINT"
-# This ensures Doppler is the parent process and injects secrets into your app.
+# Doppler as entrypoint (inject secrets at runtime)
 ENTRYPOINT ["doppler", "run", "--"]
 
-# 7. YOUR APP COMMAND
-# Since Doppler is the Entrypoint, this CMD is passed as an argument to 'doppler run --'
+# App command
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
