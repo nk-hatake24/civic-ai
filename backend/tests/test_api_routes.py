@@ -14,7 +14,7 @@ async def test_full_auth_and_chat_flow(ac):
     
     # 1. Register
     user_data = {
-        "email": "tester@civicai.cm",
+        "email": "teste111@civicai.cm",
         "password": "securepassword123",
         "full_name": "Test User"
     }
