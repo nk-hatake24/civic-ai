@@ -20,6 +20,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Install Doppler CLI
+        uses: dopplerhq/cli-action@v1
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -33,18 +37,12 @@ jobs:
 
       - name: Run Backend Tests
         env:
-          MONGODB_URL: mongodb://localhost:27017/civicai
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET: "ci-test-secret-12345"
-          # We provide dummy keys for providers we skip
-          ANTHROPIC_API_KEY: "sk-test"
-          GOOGLE_API_KEY: "sk-test"
-          GROQ_API_KEY: "sk-test"
-          ALIBABA_API_KEY: "sk-test"
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN_BACKEND }}
         run: |
           cd backend
           export PYTHONPATH=$PYTHONPATH:$(pwd)
-          pytest --ignore=tests/test_ai_providers.py -v -s
+          # 'doppler run' injects all secrets from your Doppler project/config
+          doppler run -- pytest --ignore=tests/test_ai_providers.py -v -s
 
   # --- STAGE 2: BACKEND BUILD, SCAN & PUSH ---
   backend-deploy:
@@ -61,7 +59,7 @@ jobs:
         with:
           image-ref: '${{ secrets.DOCKERHUB_USERNAME }}/civicai-backend:latest'
           format: 'table'
-          exit-code: '1' # This fails the build if High/Critical vulnerabilities are found
+          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
@@ -84,7 +82,7 @@ jobs:
       - name: Build Frontend Image
         run: |
           docker build \
-            --build-arg DOPPLER_TOKEN=${{ secrets.FRONTEND_DOPPLER_TOKEN }} \
+            --build-arg DOPPLER_TOKEN=${{ secrets.DOPPLER_TOKEN_FRONTEND }} \
             -t ${{ secrets.DOCKERHUB_USERNAME }}/civicai-frontend:latest ./frontend
 
       - name: Run Trivy vulnerability scanner (Frontend)
