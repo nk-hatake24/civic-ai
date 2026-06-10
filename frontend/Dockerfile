@@ -6,8 +6,12 @@ ENV PATH="$PNPM_HOME:$PATH"
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN corepack enable && \
-    apk add --no-cache curl libc6-compat && \
-    curl -Ls https://cli.doppler.com/install.sh | sh
+    apk add --no-cache libc6-compat wget && \
+    wget -q -t3 'https://packages.doppler.com/public/cli/rsa.8004D9FF50437357.key' \
+        -O /etc/apk/keys/doppler@doppler-alpine.rsa.pub && \
+    echo 'https://packages.doppler.com/public/cli/alpine/any-version/main' \
+        | tee -a /etc/apk/repositories && \
+    apk add doppler
 
 WORKDIR /app
 
@@ -39,8 +43,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-RUN apk add --no-cache libc6-compat curl && \
-    curl -Ls https://cli.doppler.com/install.sh | sh
+RUN apk add --no-cache libc6-compat wget && \
+    wget -q -t3 'https://packages.doppler.com/public/cli/rsa.8004D9FF50437357.key' \
+        -O /etc/apk/keys/doppler@doppler-alpine.rsa.pub && \
+    echo 'https://packages.doppler.com/public/cli/alpine/any-version/main' \
+        | tee -a /etc/apk/repositories && \
+    apk add doppler
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \

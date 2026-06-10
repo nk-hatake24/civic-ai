@@ -9,7 +9,6 @@ RUN apt-get update && \
 
 COPY requirements.txt .
 
-# Install Python dependencies locally
 RUN pip install --user --no-cache-dir -r requirements.txt
 
 
@@ -18,11 +17,18 @@ FROM python:3.12-slim AS runner
 
 WORKDIR /app
 
-# System dependencies + Doppler
+# System dependencies + Doppler (using proper Debian APT method)
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        curl ca-certificates gnupg && \
-    curl -Ls https://cli.doppler.com/install.sh | sh && \
+        apt-transport-https ca-certificates curl gnupg && \
+    curl -sLf --retry 3 --tlsv1.2 --proto "=https" \
+        'https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key' \
+        | gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] \
+        https://packages.doppler.com/public/cli/deb/debian any-version main" \
+        | tee /etc/apt/sources.list.d/doppler-cli.list && \
+    apt-get update && \
+    apt-get install -y doppler && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -38,15 +44,11 @@ RUN chown -R appuser:appgroup /home/appuser/.local
 # Copy application code
 COPY --chown=appuser:appgroup . .
 
-# Environment variables
 ENV PATH="/home/appuser/.local/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 USER appuser
 
-# Doppler as entrypoint (inject secrets at runtime)
 ENTRYPOINT ["doppler", "run", "--"]
-
-# App command
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
