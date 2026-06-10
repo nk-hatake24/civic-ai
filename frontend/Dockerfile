@@ -6,12 +6,11 @@ ENV PATH="$PNPM_HOME:$PATH"
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN corepack enable && \
-    apk add --no-cache libc6-compat curl && \
-    curl -sLf --retry 3 --tlsv1.2 --proto "=https" \
-        'https://packages.doppler.com/public/cli/rsa.8004D9FF50437357.key' \
-        -o /etc/apk/keys/doppler-alpine.rsa.pub && \
+    apk add --no-cache libc6-compat wget && \
+    wget -q -t3 'https://packages.doppler.com/public/cli/rsa.8004D9FF50437357.key' \
+        -O /etc/apk/keys/doppler@doppler-alpine.rsa.pub && \
     echo 'https://packages.doppler.com/public/cli/alpine/any-version/main' \
-        >> /etc/apk/repositories && \
+        | tee -a /etc/apk/repositories && \
     apk add --no-cache doppler
 
 WORKDIR /app
@@ -43,12 +42,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-RUN apk add --no-cache libc6-compat curl && \
-    curl -sLf --retry 3 --tlsv1.2 --proto "=https" \
-        'https://packages.doppler.com/public/cli/rsa.8004D9FF50437357.key' \
-        -o /etc/apk/keys/doppler-alpine.rsa.pub && \
+RUN apk add --no-cache libc6-compat wget && \
+    wget -q -t3 'https://packages.doppler.com/public/cli/rsa.8004D9FF50437357.key' \
+        -O /etc/apk/keys/doppler@doppler-alpine.rsa.pub && \
     echo 'https://packages.doppler.com/public/cli/alpine/any-version/main' \
-        >> /etc/apk/repositories && \
+        | tee -a /etc/apk/repositories && \
     apk add --no-cache doppler
 
 RUN addgroup --system --gid 1001 nodejs && \
