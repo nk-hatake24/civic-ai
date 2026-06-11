@@ -17,13 +17,9 @@ FROM python:3.12-slim AS runner
 
 WORKDIR /app
 
-# System dependencies + Doppler (using proper Debian APT method)
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         apt-transport-https ca-certificates curl gnupg && \
-    # Explicitly upgrade only the vulnerable OpenSSL packages
-    apt-get install -y --no-install-recommends --only-upgrade \
-        libssl3t64 openssl openssl-provider-legacy && \
     curl -sLf --retry 3 --tlsv1.2 --proto "=https" \
         'https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key' \
         | gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg && \
