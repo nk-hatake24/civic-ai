@@ -160,7 +160,7 @@ The CivicAI API uses an **Asynchronous Job Pattern**.
 ---
 
 ## 🛠 MCP Tools Available to AI
-The AI has access to the following specialized tools via the worker:
+The AI has aaccess to the following specialized tools via the worker:
 1.  `get_economic_indicator`: Fetches GDP, Population, Inflation, or Unemployment.
 2.  `get_country_info`: Fetches capital, region, and income level.
 

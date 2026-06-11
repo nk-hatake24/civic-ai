@@ -76,6 +76,7 @@ jobs:
   # --- STAGE 3: FRONTEND BUILD, SCAN & PUSH ---
   frontend-deploy:
     runs-on: ubuntu-latest
+    needs: backend-test 
     steps:
       - uses: actions/checkout@v4
 

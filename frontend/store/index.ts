@@ -1,3 +1,4 @@
+// store/index.ts
 'use client'
 
 import { create } from 'zustand'
@@ -109,37 +110,63 @@ export const useChatStore = create<ChatStore>()(
       name: 'civicai-store',
       version: 1,
       // Use dynamic storage key based on user to isolate chat data per user
-      getStorage: () => {
-        if (typeof window === 'undefined') {
-          // Return a dummy storage for SSR
-          return {
-            getItem: () => null,
-            setItem: () => {},
-            removeItem: () => {},
-          } as any
-        }
-        
-        // Get current user from auth store if available
-        const authStoreStr = localStorage.getItem('auth-store')
-        let userId = 'guest'
-        
-        try {
-          const authStore = JSON.parse(authStoreStr || '{}')
-          if (authStore.state?.user?.id) {
-            userId = authStore.state.user.id
-          }
-        } catch (e) {
-          // Fall back to guest
-        }
-        
-        const storageKey = `civicai-store-${userId}`
-        
-        return {
-          getItem: (key: string) => localStorage.getItem(storageKey),
-          setItem: (key: string, value: string) => localStorage.setItem(storageKey, value),
-          removeItem: (key: string) => localStorage.removeItem(storageKey),
-        } as any
-      },
+      storage:
+        typeof window === 'undefined'
+          ? {
+              getItem: () => null,
+              setItem: () => {},
+              removeItem: () => {},
+            }
+          : {
+              getItem: (key: string) => {
+                const authStoreStr = localStorage.getItem('auth-store')
+                let userId = 'guest'
+
+                try {
+                  const authStore = JSON.parse(authStoreStr || '{}')
+                  if (authStore.state?.user?.id) {
+                    userId = authStore.state.user.id
+                  }
+                } catch (e) {
+                  // Fall back to guest
+                }
+
+                const storageKey = `civicai-store-${userId}`
+                return localStorage.getItem(storageKey)
+              },
+              setItem: (key: string, value: string) => {
+                const authStoreStr = localStorage.getItem('auth-store')
+                let userId = 'guest'
+
+                try {
+                  const authStore = JSON.parse(authStoreStr || '{}')
+                  if (authStore.state?.user?.id) {
+                    userId = authStore.state.user.id
+                  }
+                } catch (e) {
+                  // Fall back to guest
+                }
+
+                const storageKey = `civicai-store-${userId}`
+                localStorage.setItem(storageKey, value)
+              },
+              removeItem: (key: string) => {
+                const authStoreStr = localStorage.getItem('auth-store')
+                let userId = 'guest'
+
+                try {
+                  const authStore = JSON.parse(authStoreStr || '{}')
+                  if (authStore.state?.user?.id) {
+                    userId = authStore.state.user.id
+                  }
+                } catch (e) {
+                  // Fall back to guest
+                }
+
+                const storageKey = `civicai-store-${userId}`
+                localStorage.removeItem(storageKey)
+              },
+            } as any,
     },
   ),
 )

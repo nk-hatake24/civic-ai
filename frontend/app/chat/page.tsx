@@ -1,14 +1,24 @@
+//
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useChatStore } from '@/store'
-import { useChat } from '@/hooks/useChat'
 import { SuggestedPrompts } from '@/components/chat/SuggestedPrompts'
-import { MessageInput } from '@/components/chat/MessageInput'
 import { t } from '@/lib/i18n'
 
-function DirectMessageForm({ onSubmit, isLoading, language }: { onSubmit: (msg: string) => void; isLoading: boolean; language: 'en' | 'fr' }) {
+/**
+ * Component for the direct message input on the landing page
+ */
+function DirectMessageForm({ 
+  onSubmit, 
+  isLoading, 
+  language 
+}: { 
+  onSubmit: (msg: string) => void; 
+  isLoading: boolean; 
+  language: 'en' | 'fr' 
+}) {
   const [message, setMessage] = useState('')
 
   const handleSubmit = () => {
@@ -42,7 +52,7 @@ function DirectMessageForm({ onSubmit, isLoading, language }: { onSubmit: (msg: 
             disabled={isLoading || !message.trim()}
             className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm"
           >
-            {isLoading ? (language === 'en' ? 'Sending...' : 'Envoi...') : language === 'en' ? 'Send' : 'Envoyer'}
+            {isLoading ? (language === 'en' ? 'Sending...' : 'Envoi...') : (language === 'en' ? 'Send' : 'Envoyer')}
           </button>
         </div>
       </div>
@@ -57,39 +67,49 @@ export default function ChatPage() {
   const addMessage = useChatStore((state) => state.addMessage)
   const [isLoading, setIsLoading] = useState(false)
 
+  /**
+   * Handles clicking on a suggested prompt
+   */
   const handlePromptSelect = (prompt: string) => {
-    const conversationId = createConversation(prompt.substring(0, 50) + '...')
-    // Navigate to the conversation page to show the ChatPanel
-    router.push(`/chat/${conversationId}`)
+    handleDirectMessage(prompt)
   }
 
+  /**
+   * Core logic to create a conversation and redirect to the detail view.
+   * The 'ChatPanel' component on the dynamic route [id] will detect 
+   * the new message and trigger the 'useChat' hook to call the Python backend.
+   */
   const handleDirectMessage = async (message: string) => {
     if (!message.trim()) return
 
     setIsLoading(true)
     try {
-      // Create a new conversation with the message as title
+      // 1. Create a new conversation entry in Zustand store
+      // We use the first 50 chars as the sidebar title
       const conversationId = createConversation(message.substring(0, 50) + '...')
 
-      // Add the user message to the conversation
+      // 2. Add the User's message to the store immediately
       addMessage(conversationId, {
-        role: 'user',
-        content: message,
-        timestamp: Date.now(),
-        sources: [],
-        toolCalls: [],
-      })
+      conversationId, // Ensure this property is included
+      role: 'user',
+      content: message,
+      timestamp: Date.now(),
+      sources: [],
+      toolCalls: [],
+      dataCards: []
+    })
 
-      // Navigate to the conversation page
-      router.push(`/chat/${conversationId}`)
+    // 3. Navigate to route with trigger
+    router.push(`/chat/${conversationId}?trigger=true`)
+      
     } catch (error) {
-      console.error('Error creating conversation:', error)
+      console.error('Error starting conversation:', error)
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Geometric pattern SVG
+  // Geometric pattern SVG for the background
   const geometricPattern = (
     <svg
       className="absolute inset-0 opacity-5"
@@ -114,14 +134,14 @@ export default function ChatPage() {
   return (
     <div className="flex-1 flex flex-col items-center justify-between relative overflow-hidden py-8">
       {/* Background Pattern */}
-      <div className="text-primary absolute inset-0">
+      <div className="text-primary absolute inset-0 pointer-events-none">
         {geometricPattern}
       </div>
 
       {/* Top Content */}
       <div className="relative z-10 text-center max-w-lg px-4">
         {/* Logo */}
-        <h1 className="text-6xl font-display font-semibold text-primary mb-2 text-balance">
+        <h1 className="text-6xl font-display font-semibold text-primary mb-2 text-balance tracking-tight">
           CivicAI
         </h1>
 
@@ -129,13 +149,13 @@ export default function ChatPage() {
         <div className="w-16 h-1 bg-accent mx-auto mb-6" />
 
         {/* Tagline */}
-        <p className="text-lg text-foreground mb-8 text-pretty">
+        <p className="text-lg text-foreground mb-8 text-pretty font-medium">
           {t('civicai_tagline', language)}
         </p>
 
-        {/* Suggested Prompts */}
-        <div>
-          <p className="text-sm text-muted-foreground mb-4 font-semibold uppercase">
+        {/* Suggested Prompts Section */}
+        <div className="mb-8">
+          <p className="text-xs text-muted-foreground mb-4 font-bold uppercase tracking-widest">
             {t('suggested_prompts', language)}
           </p>
           <SuggestedPrompts onSelect={handlePromptSelect} language={language} />

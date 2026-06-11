@@ -11,3 +11,4 @@ async def register(request: RegisterRequest):
 @router.post("/login", response_model=dict)
 async def login(request: LoginRequest):
     return await login_user(request)
+
