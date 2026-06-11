@@ -165,7 +165,7 @@ export default function LoginPage() {
                 <label className="block text-sm font-medium text-foreground mb-2">Password</label>
                 <Input
                   type="password"
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}

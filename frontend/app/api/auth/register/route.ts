@@ -55,8 +55,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       user: {
-        id: data.user.id,
-        email: data.user.email,
+        id: data.user_id,
         name: generatedName
       }
     }, { status: 201 })
