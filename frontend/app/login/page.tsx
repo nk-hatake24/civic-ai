@@ -132,12 +132,7 @@ export default function LoginPage() {
                 {isLoading ? 'Logging in...' : 'Log In'}
               </Button>
 
-              {/* Demo credentials hint */}
-              <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded">
-                <p className="font-medium mb-1">Demo Credentials:</p>
-                <p>Email: admin@gmail.com</p>
-                <p>Password: admin</p>
-              </div>
+            
             </form>
           ) : (
             /* Register Form */
@@ -207,7 +202,7 @@ export default function LoginPage() {
               <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded">
                 <p className="font-medium mb-1">Password Requirements:</p>
                 <ul className="list-disc list-inside space-y-1">
-                  <li>At least 6 characters</li>
+                  <li>At least 8 characters</li>
                   <li>Must match confirmation</li>
                 </ul>
               </div>

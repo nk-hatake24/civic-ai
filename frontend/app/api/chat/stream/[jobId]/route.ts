@@ -10,7 +10,7 @@ export async function GET(
   const cookieStore = await cookies()
   const token = cookieStore.get('auth_token')?.value
   
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL 
 
   // 1. Call Python's streaming endpoint
   const response = await fetch(`${backendUrl}/api/chat/stream/${jobId}`, {

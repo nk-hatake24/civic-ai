@@ -17,8 +17,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Passwords do not match' }, { status: 400 })
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
-
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL 
     // 2. Call FastAPI Backend
     const response = await fetch(`${backendUrl}/auth/register`, {
       method: 'POST',
